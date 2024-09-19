@@ -21,13 +21,11 @@ fn main() {
 
             if !file_contents.is_empty() {
                 for c in file_contents.chars() {
-                    println!("{} null",
-                        match c {
-                            '(' => "LEFT_PAREN (",
-                            ')' => "RIGHT_PAREN )",
-                            _ => "EOF ",
-                        }
-                    )
+                    match c {
+                        '(' => println!("LEFT_PAREN ( null"),
+                        ')' => println!("RIGHT_PAREN ) null"),
+                        _ => (),
+                    };
                 }
             } else {
                 println!("EOF  null");
