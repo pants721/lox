@@ -116,7 +116,7 @@ impl Scanner {
                     t_type 
                 });
             } else {
-                eprintln!("[line {}] Error: Unexpected character: {}", self.line, c);
+                panic!("[line {}] Error: Unexpected character: {}", self.line, c);
             }
         }
     }
