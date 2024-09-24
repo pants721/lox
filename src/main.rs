@@ -8,6 +8,12 @@ pub enum TokenType {
     RightParen,
     LeftBrace,
     RightBrace,
+    Comma,
+    Dot,
+    Minus,
+    Plus,
+    Star,
+    SemiColon,
     Eof,
 }
 
@@ -19,6 +25,12 @@ impl TokenType {
             ")" => Some(RightParen),
             "{" => Some(LeftBrace),
             "}" => Some(RightBrace),
+            "," => Some(Comma),
+            "." => Some(Dot),
+            "-" => Some(Minus),
+            "+" => Some(Plus),
+            "*" => Some(Star),
+            ";" => Some(SemiColon),
             _ => None
         }
     }
@@ -32,6 +44,12 @@ impl std::fmt::Display for TokenType {
             RightParen => f.write_str("RIGHT_PAREN"),
             LeftBrace => f.write_str("LEFT_BRACE"),
             RightBrace => f.write_str("RIGHT_BRACE"),
+            Comma => f.write_str("COMMA"),
+            Dot => f.write_str("DOT"),
+            Minus => f.write_str("MINUS"),
+            Plus => f.write_str("PLUS"),
+            Star => f.write_str("STAR"),
+            SemiColon => f.write_str("SEMICOLON"),
             Eof => f.write_str("EOF"),
         }
     }
