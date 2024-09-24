@@ -6,6 +6,8 @@ use std::io::{self, Write};
 pub enum TokenType {
     LeftParen,
     RightParen,
+    LeftBrace,
+    RightBrace,
     Eof,
 }
 
@@ -15,6 +17,8 @@ impl TokenType {
         match s {
             "(" => Some(LeftParen),
             ")" => Some(RightParen),
+            "{" => Some(LeftBrace),
+            "}" => Some(RightBrace),
             _ => None
         }
     }
@@ -26,6 +30,8 @@ impl std::fmt::Display for TokenType {
         match self {
             LeftParen => f.write_str("LEFT_PAREN"),
             RightParen => f.write_str("RIGHT_PAREN"),
+            LeftBrace => f.write_str("LEFT_BRACE"),
+            RightBrace => f.write_str("RIGHT_BRACE"),
             Eof => f.write_str("EOF"),
         }
     }
