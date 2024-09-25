@@ -1,4 +1,5 @@
 use std::env;
+use std::fmt::Display;
 use std::fs;
 use std::fmt;
 use std::io::{self, Write};
@@ -10,6 +11,9 @@ pub enum LexerError {
     UnexpectedCharacter {
         line: usize,
         c: char,
+    },
+    UnterminatedString {
+        line: usize,
     }
 }
 
@@ -20,6 +24,9 @@ impl fmt::Display for LexerError {
             UnexpectedCharacter { line, c } => {
                 f.write_str(&format!("[line {}] Error: Unexpected character: {}", line, c))
             },
+            UnterminatedString { line } => {
+                f.write_str(&format!("[line {}] Error: Unterminated string.", line))
+            }
         }
     }
 }
@@ -84,7 +91,7 @@ pub enum TokenType {
     Greater,
     GreaterEqual,
     Slash,
-
+    String,
     Eof,
 }
 
@@ -126,25 +133,44 @@ impl std::fmt::Display for TokenType {
 }
 
 #[derive(Debug, Clone)]
+pub enum Literal {
+    String(String),
+}
+
+impl Display for Literal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Literal::String(s) => f.write_str(&s),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Token {
     lexeme: String,
     t_type: TokenType,
     line: usize,
+    literal: Option<Literal>,
 }
 
 impl Token {
-    pub fn new(lexeme: String, t_type: TokenType, line: usize) -> Self {
+    pub fn new(lexeme: String, t_type: TokenType, line: usize, literal: Option<Literal>) -> Self {
         Self {
             lexeme,
             t_type,
             line,
+            literal,
         }
     }
 }
 
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("{} {} null", self.t_type.screaming_snake_case(), self.lexeme))
+        f.write_str(&format!("{} {} {}", self.t_type.screaming_snake_case(), self.lexeme, 
+            match &self.literal {
+                Some(l) => l.to_string(),
+                None => "null".to_string(),
+            }))
     }
 }
 
@@ -175,7 +201,7 @@ impl Scanner {
             self.scan_token();
         }
 
-        self.tokens.push(Token::new("".to_string(), TokenType::Eof, self.line));
+        self.tokens.push(Token::new("".to_string(), TokenType::Eof, self.line, None));
         self.tokens.clone()
     }
 
@@ -183,6 +209,7 @@ impl Scanner {
         use TokenType::*;
         if let Some(c) = self.advance() {
             let mut lexeme = c.to_string();
+            let mut literal: Option<Literal> = None;
             let t_type = match c {
                 '!' => if self.match_char('=') { lexeme = "!=".to_string(); Some(BangEqual) } else { Some(Bang) },
                 '=' => if self.match_char('=') { lexeme = "==".to_string(); Some(EqualEqual) } else { Some(Equal) },
@@ -195,7 +222,8 @@ impl Scanner {
                     None
                 } else {
                     Some(Slash)
-                }
+                },
+                '"' => { self.string(); return; },
                 ' ' => return,
                 '\r' => return,
                 '\t' => return,
@@ -214,9 +242,28 @@ impl Scanner {
             };
 
             if let Some(t) = t_type {
-                self.tokens.push(Token::new(lexeme, t, self.line));
+                self.tokens.push(Token::new(lexeme, t, self.line, literal));
             }
         }
+    }
+
+    fn string(&mut self) {
+        while self.peek() != Some('"') && !self.is_at_end() {
+            if self.peek() == Some('\n') { self.line += 1; }
+            self.advance();
+        }
+
+        if self.is_at_end() {
+            let e = LexerError::UnterminatedString { line: self.line };
+            eprintln!("{}", e);
+            self.errors.push(e);
+            return;
+        }
+
+        self.advance();
+
+        let val = &self.source[self.start+1..self.current-1];
+        self.tokens.push(Token::new(self.source[self.start..self.current].to_string(), TokenType::String, self.line, Some(Literal::String(val.to_string()))));
     }
 
     fn char_at(&self, n: usize) -> Option<char> {
