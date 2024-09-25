@@ -4,6 +4,8 @@ use std::fmt;
 use std::io::{self, Write};
 use std::process;
 
+use itertools::Itertools;
+
 pub enum LexerError {
     UnexpectedCharacter {
         line: usize,
@@ -22,6 +24,45 @@ impl fmt::Display for LexerError {
     }
 }
 
+struct CamelCaseSplit<'a> {
+    char_indices: std::str::CharIndices<'a>,
+    chunk_start: usize,
+    s: &'a str
+}
+
+impl<'a> CamelCaseSplit<'a> {
+    pub fn new(s: &'a str) -> Self {
+        let mut char_indices = s.char_indices();
+        // We'll never want to split before the first char, so skip it.
+        char_indices.next();
+        Self {
+            char_indices,
+            chunk_start: 0,
+            s,
+        }
+    }
+}
+
+impl<'a> Iterator for CamelCaseSplit<'a> {
+    type Item = &'a str;
+    
+    fn next(&mut self) -> Option<Self::Item> {
+        // The input is exhausted
+        if self.chunk_start == self.s.len() {
+            return None;
+        }
+        // Find the next uppercase letter position OR the end of the string
+        let chunk_end = if let Some((chunk_end, _)) = self.char_indices.by_ref().skip_while(|(_, c)| !c.is_uppercase()).next() {
+            chunk_end
+        } else {
+            self.s.len()
+        };
+        let chunk = &self.s[self.chunk_start..chunk_end];
+        self.chunk_start = chunk_end;
+        return Some(chunk);
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum TokenType {
     LeftParen,
@@ -33,7 +74,15 @@ pub enum TokenType {
     Minus,
     Plus,
     Star,
-    SemiColon,
+    Semicolon,
+    Bang,
+    BangEqual,
+    Equal,
+    EqualEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
     Eof,
 }
 
@@ -50,28 +99,27 @@ impl TokenType {
             "-" => Some(Minus),
             "+" => Some(Plus),
             "*" => Some(Star),
-            ";" => Some(SemiColon),
+            ";" => Some(Semicolon),
+            "!" => Some(Bang),
+            "!=" => Some(BangEqual),
+            "=" => Some(Equal),
+            "==" => Some(EqualEqual),
+            "<" => Some(Less),
+            "<=" => Some(LessEqual),
+            ">" => Some(Greater),
+            ">=" => Some(GreaterEqual),
             _ => None
         }
+    }
+
+    pub fn screaming_snake_case(&self) -> String {
+        CamelCaseSplit::new(&self.to_string()).map(|s| s.to_uppercase()).collect_vec().join("_")
     }
 }
 
 impl std::fmt::Display for TokenType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use TokenType::*;
-        match self {
-            LeftParen => f.write_str("LEFT_PAREN"),
-            RightParen => f.write_str("RIGHT_PAREN"),
-            LeftBrace => f.write_str("LEFT_BRACE"),
-            RightBrace => f.write_str("RIGHT_BRACE"),
-            Comma => f.write_str("COMMA"),
-            Dot => f.write_str("DOT"),
-            Minus => f.write_str("MINUS"),
-            Plus => f.write_str("PLUS"),
-            Star => f.write_str("STAR"),
-            SemiColon => f.write_str("SEMICOLON"),
-            Eof => f.write_str("EOF"),
-        }
+        fmt::Debug::fmt(self, f)
     }
 }
 
@@ -94,7 +142,7 @@ impl Token {
 
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&format!("{} {} null", self.t_type, self.lexeme))
+        f.write_str(&format!("{} {} null", self.t_type.screaming_snake_case(), self.lexeme))
     }
 }
 
@@ -130,25 +178,53 @@ impl Scanner {
     }
 
     pub fn scan_token(&mut self) {
+        use TokenType::*;
         if let Some(c) = self.advance() {
-            if let Some(t_type) = TokenType::parse(&c.to_string()) {
-                self.tokens.push(Token {
-                    lexeme: c.to_string(),
-                    line: self.line,
-                    t_type 
-                });
-            } else {
-                let e = LexerError::UnexpectedCharacter { line: self.line, c };
-                eprintln!("{}", e);
-                self.errors.push(e);
+            let mut lexeme = c.to_string();
+            let t_type = match c {
+                '!' => if self.match_char('=') { lexeme = "!=".to_string(); Some(BangEqual) } else { Some(Bang) },
+                '=' => if self.match_char('=') { lexeme = "==".to_string(); Some(EqualEqual) } else { Some(Equal) },
+                '<' => if self.match_char('=') { lexeme = "<=".to_string(); Some(LessEqual) } else { Some(Less) },
+                '>' => if self.match_char('=') { lexeme = ">=".to_string(); Some(GreaterEqual) } else { Some(Greater) },
+                _ => {
+                    match TokenType::parse(&c.to_string()) {
+                        Some(t) => Some(t),
+                        None => {
+                            let e = LexerError::UnexpectedCharacter { line: self.line, c };
+                            eprintln!("{}", e);
+                            self.errors.push(e);
+                            None
+                        }
+                    }
+                }
+            };
+
+            if let Some(t) = t_type {
+                self.tokens.push(Token::new(lexeme, t, self.line));
             }
         }
+    }
+
+    fn char_at(&self, n: usize) -> Option<char> {
+        self.source.chars().nth(n)
     }
 
     fn advance(&mut self) -> Option<char>{
         let c = self.source.chars().nth(self.current);
         self.current += 1;
         c
+    }
+
+    fn match_char(&mut self, expected: char) -> bool {
+        if self.is_at_end() { return false };
+        if let Some(c) = self.char_at(self.current) {
+            if c != expected { return false };
+        } else {
+            return false;
+        }
+
+        self.current += 1;
+        true
     }
 
     fn is_at_end(&self) -> bool {
