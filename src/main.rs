@@ -83,6 +83,8 @@ pub enum TokenType {
     LessEqual,
     Greater,
     GreaterEqual,
+    Slash,
+
     Eof,
 }
 
@@ -186,6 +188,18 @@ impl Scanner {
                 '=' => if self.match_char('=') { lexeme = "==".to_string(); Some(EqualEqual) } else { Some(Equal) },
                 '<' => if self.match_char('=') { lexeme = "<=".to_string(); Some(LessEqual) } else { Some(Less) },
                 '>' => if self.match_char('=') { lexeme = ">=".to_string(); Some(GreaterEqual) } else { Some(Greater) },
+                '/' => if self.match_char('/') {
+                    while self.peek() != Some('\n') && !self.is_at_end() { 
+                        self.advance();
+                    }
+                    None
+                } else {
+                    Some(Slash)
+                }
+                ' ' => return,
+                '\r' => return,
+                '\t' => return,
+                '\n' => { self.line += 1; return; }
                 _ => {
                     match TokenType::parse(&c.to_string()) {
                         Some(t) => Some(t),
@@ -207,6 +221,11 @@ impl Scanner {
 
     fn char_at(&self, n: usize) -> Option<char> {
         self.source.chars().nth(n)
+    }
+
+    fn peek(&self) -> Option<char> {
+        if self.is_at_end() { return None }
+        self.char_at(self.current)
     }
 
     fn advance(&mut self) -> Option<char>{
