@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::env;
 use std::fmt::Display;
 use std::fs;
@@ -6,6 +7,33 @@ use std::io::{self, Write};
 use std::process;
 
 use itertools::Itertools;
+use lazy_static::lazy_static;
+
+lazy_static! {
+    static ref RESERVED_KEYWORDS: HashMap<&'static str, TokenType> = {
+        use TokenType::*;
+        let mut m = HashMap::new();
+
+        m.insert("and",    And);
+        m.insert("class",  Class);
+        m.insert("else",   Else);
+        m.insert("false",  False);
+        m.insert("for",    For);
+        m.insert("fun",    Fun);
+        m.insert("if",     If);
+        m.insert("nil",    Nil);
+        m.insert("or",     Or);
+        m.insert("print",  Print);
+        m.insert("return", Return);
+        m.insert("super",  Super);
+        m.insert("this",   This);
+        m.insert("true",   True);
+        m.insert("var",    Var);
+        m.insert("while",  While);
+
+        m
+    };
+}
 
 pub enum LexerError {
     UnexpectedCharacter {
@@ -93,6 +121,27 @@ pub enum TokenType {
     Slash,
     String,
     Number,
+
+    // Reserved Keywords
+    And,
+    Class,
+    Else,
+    False,
+    For,
+    Fun,
+    If,
+    Nil,
+    Or,
+    Print,
+    Return,
+    Super,
+    This,
+    True,
+    Var,
+    While,
+
+    Identifier,
+
     Eof,
 }
 
@@ -248,7 +297,10 @@ impl Scanner {
                             if c.is_ascii_digit() {
                                 self.number();
                                 return;
-                            } 
+                            } else if c.is_alphanumeric() {
+                                self.identifier();
+                                return;
+                            }
                             let e = LexerError::UnexpectedCharacter { line: self.line, c };
                             eprintln!("{}", e);
                             self.errors.push(e);
@@ -262,6 +314,18 @@ impl Scanner {
                 self.tokens.push(Token::new(lexeme, t, self.line, literal));
             }
         }
+    }
+
+    fn identifier(&mut self) {
+        while self.peek().is_some_and(|c| c.is_alphanumeric()) { self.advance(); }
+        
+        let text = &self.source[self.start..self.current];
+        let t_type = match RESERVED_KEYWORDS.get(text) {
+            Some(t) => t,
+            None => &TokenType::Identifier,
+        };
+
+        self.tokens.push(Token::new(text.to_string(), *t_type, self.line, None));
     }
 
     fn string(&mut self) {
