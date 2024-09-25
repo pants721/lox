@@ -297,7 +297,7 @@ impl Scanner {
                             if c.is_ascii_digit() {
                                 self.number();
                                 return;
-                            } else if c.is_alphanumeric() {
+                            } else if c.is_alphanumeric() || c == '_' {
                                 self.identifier();
                                 return;
                             }
