@@ -92,6 +92,7 @@ pub enum TokenType {
     GreaterEqual,
     Slash,
     String,
+    Number,
     Eof,
 }
 
@@ -135,12 +136,14 @@ impl std::fmt::Display for TokenType {
 #[derive(Debug, Clone)]
 pub enum Literal {
     String(String),
+    Number(f64),
 }
 
 impl Display for Literal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Literal::String(s) => f.write_str(&s),
+            Literal::String(s) => f.write_str(s),
+            Literal::Number(n) => f.write_str(&n.to_string()),
         }
     }
 }
@@ -232,6 +235,10 @@ impl Scanner {
                     match TokenType::parse(&c.to_string()) {
                         Some(t) => Some(t),
                         None => {
+                            if c.is_ascii_digit() {
+                                self.number();
+                                return;
+                            } 
                             let e = LexerError::UnexpectedCharacter { line: self.line, c };
                             eprintln!("{}", e);
                             self.errors.push(e);
@@ -266,13 +273,30 @@ impl Scanner {
         self.tokens.push(Token::new(self.source[self.start..self.current].to_string(), TokenType::String, self.line, Some(Literal::String(val.to_string()))));
     }
 
+    fn number(&mut self) {
+        while self.peek().is_some_and(|c| c.is_ascii_digit()) { self.advance(); }
+
+        if self.peek() == Some('.') && self.peek_next().is_some_and(|c| c.is_ascii_digit()) {
+            self.advance();
+            while self.peek().is_some_and(|c| c.is_ascii_digit()) { self.advance(); }
+        }
+
+        let num = self.source[self.start..self.current].parse().expect("Failed to parse number");
+        self.tokens.push(Token::new(self.source[self.start..self.current].to_string(), TokenType::Number, self.line, Some(Literal::Number(num))));
+    }
+
     fn char_at(&self, n: usize) -> Option<char> {
         self.source.chars().nth(n)
     }
 
     fn peek(&self) -> Option<char> {
-        if self.is_at_end() { return None }
+        if self.is_at_end() { return None; }
         self.char_at(self.current)
+    }
+
+    fn peek_next(&self) -> Option<char> {
+        if self.current + 1 >= self.source.len() { return None; }
+        self.char_at(self.current + 1)
     }
 
     fn advance(&mut self) -> Option<char>{
