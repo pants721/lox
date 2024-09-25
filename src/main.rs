@@ -1,6 +1,26 @@
 use std::env;
 use std::fs;
+use std::fmt;
 use std::io::{self, Write};
+use std::process;
+
+pub enum LexerError {
+    UnexpectedCharacter {
+        line: usize,
+        c: char,
+    }
+}
+
+impl fmt::Display for LexerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use LexerError::*;
+        match *self {
+            UnexpectedCharacter { line, c } => {
+                f.write_str(&format!("[line {}] Error: Unexpected character: {}", line, c))
+            },
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum TokenType {
@@ -84,6 +104,7 @@ pub struct Scanner {
     start: usize,
     current: usize,
     line: usize,
+    errors: Vec<LexerError>,
 }
 
 impl Scanner {
@@ -94,6 +115,7 @@ impl Scanner {
             start: 0,
             current: 0,
             line: 1,
+            errors: vec![],
         }
     }
 
@@ -116,7 +138,9 @@ impl Scanner {
                     t_type 
                 });
             } else {
-                panic!("[line {}] Error: Unexpected character: {}", self.line, c);
+                let e = LexerError::UnexpectedCharacter { line: self.line, c };
+                eprintln!("{}", e);
+                self.errors.push(e);
             }
         }
     }
@@ -154,6 +178,10 @@ fn main() {
                 let tokens = scanner.scan_tokens();
                 for token in tokens {
                     println!("{}", token);
+                }
+
+                if !scanner.errors.is_empty() {
+                    process::exit(65);
                 }
             } else {
                 println!("EOF  null");
