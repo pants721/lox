@@ -66,7 +66,7 @@ impl<'a> Iterator for CamelCaseSplit<'a> {
         };
         let chunk = &self.s[self.chunk_start..chunk_end];
         self.chunk_start = chunk_end;
-        return Some(chunk);
+        Some(chunk)
     }
 }
 
@@ -143,7 +143,17 @@ impl Display for Literal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Literal::String(s) => f.write_str(s),
-            Literal::Number(n) => f.write_str(&n.to_string()),
+            Literal::Number(n) => {
+                let s = n.to_string() + {
+                    if n % 1.0 == 0.0 {
+                        ".0"
+                    } else {
+                        ""
+                    }
+                    
+                };
+                f.write_str(&s)
+            },
         }
     }
 }
