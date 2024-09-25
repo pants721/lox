@@ -317,7 +317,7 @@ impl Scanner {
     }
 
     fn identifier(&mut self) {
-        while self.peek().is_some_and(|c| c.is_alphanumeric()) { self.advance(); }
+        while self.peek().is_some_and(|c| c.is_alphanumeric() || c == '_') { self.advance(); }
         
         let text = &self.source[self.start..self.current];
         let t_type = match RESERVED_KEYWORDS.get(text) {
