@@ -54,7 +54,7 @@ impl fmt::Display for LexerError {
                 f.write_str(&lox_error_str!(line, "Unexpected character: {}", c))
             },
             UnterminatedString { line } => {
-                f.write_str(&lox_error_str!(line, "Unterminated string"))
+                f.write_str(&lox_error_str!(line, "Unterminated string."))
             }
         }
     }
