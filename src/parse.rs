@@ -78,7 +78,10 @@ impl Visitor<String> for AstPrinter {
         dbg!(e);
         match e {
             Expr::Literal { val } => match val {
-                Some(t) => t.lexeme.clone(),
+                Some(t) => match &t.literal {
+                    Some(l) => l.to_string(),
+                    None => t.lexeme.clone(),
+                },
                 None => "nil".to_string(),
             },
             Expr::Grouping { lhs, ref expr, rhs } => self.parenthesize(&"group".to_string(), vec![&expr]),
