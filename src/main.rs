@@ -60,10 +60,15 @@ fn main() -> Result<()> {
             if !file_contents.is_empty() {
                 let mut scanner = Scanner::new(file_contents);
                 let tokens = scanner.scan_tokens();
+
+                if scanner.has_errored {
+                    process::exit(65);
+                }
+
                 let mut parser = Parser::new(tokens);
                 let expr = parser.parse()?;
 
-                if scanner.has_errored || parser.has_errored {
+                if parser.has_errored {
                     process::exit(65);
                 }
 
