@@ -51,3 +51,13 @@ macro_rules! lox_error_str {
     };
 }
 
+#[macro_export]
+macro_rules! lox_token_error_str {
+    ($line:expr, $token:expr, $msg:expr) => {
+        format!("[line {}] Error at '{}': {}", $line, $token, $msg)
+    };
+
+    ($line:expr, $msg:expr, $($arg:tt)*) => {
+        format!("[line {}] Error at '{}': {}", $line, $token, format_args!($msg, $($arg)*))
+    };
+}

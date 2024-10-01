@@ -3,7 +3,7 @@ use std::fmt::{self, Write};
 use anyhow::{anyhow, Result};
 use thiserror::Error;
 
-use crate::{lox_error_str, scanner::{Scanner, Token, TokenType}};
+use crate::{lox_error_str, lox_token_error_str, scanner::{Scanner, Token, TokenType}};
 use crate::{binary_expr, unary_expr, grouping_expr, literal_expr};
 
 #[derive(Debug)]
@@ -27,7 +27,7 @@ impl fmt::Display for ParserError {
                 f.write_str(&lox_error_str!(line, "Unmatched delimiter: Expected {}", expected))
             },
             Self::NoExpression { line, token } => {
-                f.write_str(&lox_error_str!(line, "Expected expression"))
+                f.write_str(&lox_token_error_str!(line, token.lexeme, "Expected expression"))
             }
         }
     }
