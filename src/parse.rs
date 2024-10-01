@@ -31,6 +31,7 @@ impl fmt::Display for ParserError {
     }
 }
 
+#[derive(Debug)]
 pub enum Expr {
     Literal {
         val: Option<Token>,
@@ -74,6 +75,7 @@ impl AstPrinter {
 
 impl Visitor<String> for AstPrinter {
     fn visit(&mut self, e: &Expr) -> String {
+        dbg!(e);
         match e {
             Expr::Literal { val } => match val {
                 Some(t) => t.lexeme.clone(),
