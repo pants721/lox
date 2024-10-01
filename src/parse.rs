@@ -1,11 +1,13 @@
 use std::fmt::{self, Write};
 
 use anyhow::{anyhow, Result};
+use thiserror::Error;
 
 use crate::{lox_error_str, scanner::{Scanner, Token, TokenType}};
 use crate::{binary_expr, unary_expr, grouping_expr, literal_expr};
 
 #[derive(Debug)]
+#[derive(Error)]
 pub enum ParserError {
     UnmatchedDelimiter {
         line: usize,
@@ -75,7 +77,6 @@ impl AstPrinter {
 
 impl Visitor<String> for AstPrinter {
     fn visit(&mut self, e: &Expr) -> String {
-        dbg!(e);
         match e {
             Expr::Literal { val } => match val {
                 Some(t) => match &t.literal {
@@ -164,7 +165,7 @@ impl Parser {
 
     fn unary(&mut self) -> Result<Expr, ParserError> {
 
-        if self.match_type(vec![TokenType::Slash, TokenType::Star]) {
+        if self.match_type(vec![TokenType::Bang, TokenType::Minus]) {
             let op = self.previous();
             let rhs = self.unary()?;
             return Ok(Expr::Unary { lhs: op.clone(), expr: Box::new(rhs) });

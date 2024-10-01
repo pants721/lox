@@ -2,6 +2,7 @@ use std::env;
 use std::fs;
 use std::process;
 
+use anyhow::Result;
 use parse::AstPrinter;
 use parse::Expr;
 use parse::Parser;
@@ -16,11 +17,11 @@ mod scanner;
 mod util;
 mod parse;
 
-fn main() {
+fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
         eprintln!("Usage: {} tokenize <filename>", args[0]);
-        return;
+        return Ok(());
     }
 
     let command = &args[1];
@@ -43,6 +44,8 @@ fn main() {
                 if scanner.has_errored {
                     process::exit(65);
                 }
+
+                return Ok(());
             } else {
                 println!("EOF  null");
             }
@@ -58,7 +61,7 @@ fn main() {
                 let mut scanner = Scanner::new(file_contents);
                 let tokens = scanner.scan_tokens();
                 let mut parser = Parser::new(tokens);
-                let expr = parser.parse().unwrap();
+                let expr = parser.parse()?;
 
                 if scanner.has_errored || parser.has_errored {
                     process::exit(65);
@@ -82,4 +85,6 @@ fn main() {
             eprintln!("Unknown command: {}", command);
         }
     }
+
+    Ok(())
 }
