@@ -6,8 +6,7 @@ use thiserror::Error;
 use crate::{lox_error_str, lox_token_error_str, scanner::{Scanner, Token, TokenType}};
 use crate::{binary_expr, unary_expr, grouping_expr, literal_expr};
 
-#[derive(Debug)]
-#[derive(Error)]
+#[derive(Debug,Error)]
 pub enum ParserError {
     UnmatchedDelimiter {
         line: usize,
@@ -24,7 +23,7 @@ impl fmt::Display for ParserError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::UnmatchedDelimiter { line, token, expected } => {
-                f.write_str(&lox_error_str!(line, "Unmatched delimiter: Expected {}", expected))
+                f.write_str(&lox_token_error_str!(line, token.lexeme, "Unmatched delimiter: Expected {}", expected))
             },
             Self::NoExpression { line, token } => {
                 f.write_str(&lox_token_error_str!(line, token.lexeme, "Expected expression"))

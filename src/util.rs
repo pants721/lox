@@ -57,7 +57,7 @@ macro_rules! lox_token_error_str {
         format!("[line {}] Error at '{}': {}", $line, $token, $msg)
     };
 
-    ($line:expr, $msg:expr, $($arg:tt)*) => {
+    ($line:expr, $token:expr, $msg:expr, $($arg:tt)*) => {
         format!("[line {}] Error at '{}': {}", $line, $token, format_args!($msg, $($arg)*))
     };
 }

@@ -66,7 +66,13 @@ fn main() -> Result<()> {
                 }
 
                 let mut parser = Parser::new(tokens);
-                let expr = parser.parse()?;
+                let expr = match parser.parse() {
+                    Ok(ex) => ex,
+                    Err(e) => {
+                        eprintln!("{}", e);
+                        process::exit(65);
+                    }
+                };
 
                 if parser.has_errored {
                     process::exit(65);
