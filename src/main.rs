@@ -2,10 +2,19 @@ use std::env;
 use std::fs;
 use std::process;
 
+use parse::AstPrinter;
+use parse::Expr;
+use parse::Parser;
+use parse::Visitor;
+use scanner::Literal;
+use scanner::Token;
+use scanner::TokenType;
+
 use crate::scanner::Scanner;
 
 mod scanner;
 mod util;
+mod parse;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -31,13 +40,43 @@ fn main() {
                     println!("{}", token);
                 }
 
-                if !scanner.errors.is_empty() {
+                if scanner.has_errored {
                     process::exit(65);
                 }
             } else {
                 println!("EOF  null");
             }
 
+        },
+        "parse" => {
+            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+                eprintln!("Failed to read file {}", filename);
+                String::new()
+            });
+
+            if !file_contents.is_empty() {
+                let mut scanner = Scanner::new(file_contents);
+                let tokens = scanner.scan_tokens();
+                let mut parser = Parser::new(tokens);
+                let expr = parser.parse().unwrap();
+
+                if scanner.has_errored || parser.has_errored {
+                    process::exit(65);
+                }
+
+                let mut p = AstPrinter;
+
+                println!("{}", p.visit(&expr));
+            } else {
+                println!("EOF  null");
+            }
+
+            // let expr = 
+            // binary_expr!(
+            //     unary_expr!("-", literal_expr!(123.0, Literal::Number)),
+            //     "*",
+            //     grouping_expr!("(", literal_expr!(45.67, Literal::Number), ")")
+            // );
         }
         _ => {
             eprintln!("Unknown command: {}", command);

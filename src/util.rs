@@ -37,3 +37,17 @@ impl<'a> Iterator for CamelCaseSplit<'a> {
     }
 }
 
+#[macro_export]
+/// Takes arguments (line_number, message, ...)
+/// Message can be a format string.
+/// Returns an error string in the format "[line $line] Error: $msg".
+macro_rules! lox_error_str {
+    ($line:expr, $msg:expr) => {
+        format!("[line {}] Error: {}", $line, $msg)
+    };
+
+    ($line:expr, $msg:expr, $($arg:tt)*) => {
+        format!("[line {}] Error: {}", $line, format_args!($msg, $($arg)*))
+    };
+}
+

@@ -2,9 +2,11 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::fmt;
 
+use anyhow::Result;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 
+use crate::lox_error_str;
 use crate::util::CamelCaseSplit;
 
 lazy_static! {
@@ -33,6 +35,7 @@ lazy_static! {
     };
 }
 
+#[derive(Clone)]
 pub enum LexerError {
     UnexpectedCharacter {
         line: usize,
@@ -48,16 +51,16 @@ impl fmt::Display for LexerError {
         use LexerError::*;
         match *self {
             UnexpectedCharacter { line, c } => {
-                f.write_str(&format!("[line {}] Error: Unexpected character: {}", line, c))
+                f.write_str(&lox_error_str!(line, "Unexpected character: {}", c))
             },
             UnterminatedString { line } => {
-                f.write_str(&format!("[line {}] Error: Unterminated string.", line))
+                f.write_str(&lox_error_str!(line, "Unterminated string"))
             }
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TokenType {
     LeftParen,
     RightParen,
@@ -141,7 +144,7 @@ impl std::fmt::Display for TokenType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Literal {
     String(String),
     Number(f64),
@@ -166,12 +169,12 @@ impl Display for Literal {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Token {
-    lexeme: String,
-    t_type: TokenType,
-    line: usize,
-    literal: Option<Literal>,
+    pub lexeme: String,
+    pub t_type: TokenType,
+    pub line: usize,
+    pub literal: Option<Literal>,
 }
 
 impl Token {
@@ -201,77 +204,88 @@ pub struct Scanner {
     start: usize,
     current: usize,
     line: usize,
-    pub errors: Vec<LexerError>,
+    pub has_errored: bool,
+}
+
+impl Default for Scanner {
+    fn default() -> Self {
+        Self {
+            source: "".to_string(),
+            tokens: vec![],
+            start: 0,
+            current: 0,
+            line: 1,
+            has_errored: false,
+        }
+    }
 }
 
 impl Scanner {
     pub fn new(source: String) -> Self {
         Self {
             source,
-            tokens: vec![],
-            start: 0,
-            current: 0,
-            line: 1,
-            errors: vec![],
+            ..Default::default()
         }
     }
 
     pub fn scan_tokens(&mut self) -> Vec<Token> {
         while !self.is_at_end() {
             self.start = self.current;
-            self.scan_token();
+            match self.scan_token() {
+                Ok(_) => (),
+                Err(e) => {
+                    self.has_errored = true;
+                    eprintln!("{}", e);
+                },
+            }
         }
 
         self.tokens.push(Token::new("".to_string(), TokenType::Eof, self.line, None));
         self.tokens.clone()
     }
 
-    pub fn scan_token(&mut self) {
+    fn scan_token(&mut self) -> Result<(), LexerError> {
         use TokenType::*;
         if let Some(c) = self.advance() {
             let mut lexeme = c.to_string();
             let t_type = match c {
-                '!' => if self.match_char('=') { lexeme = "!=".to_string(); Some(BangEqual) } else { Some(Bang) },
-                '=' => if self.match_char('=') { lexeme = "==".to_string(); Some(EqualEqual) } else { Some(Equal) },
-                '<' => if self.match_char('=') { lexeme = "<=".to_string(); Some(LessEqual) } else { Some(Less) },
-                '>' => if self.match_char('=') { lexeme = ">=".to_string(); Some(GreaterEqual) } else { Some(Greater) },
+                '!' => if self.match_char('=') { lexeme = "!=".to_string(); BangEqual } else { Bang },
+                '=' => if self.match_char('=') { lexeme = "==".to_string(); EqualEqual } else { Equal },
+                '<' => if self.match_char('=') { lexeme = "<=".to_string(); LessEqual } else { Less },
+                '>' => if self.match_char('=') { lexeme = ">=".to_string(); GreaterEqual } else { Greater },
                 '/' => if self.match_char('/') {
                     while self.peek() != Some('\n') && !self.is_at_end() { 
                         self.advance();
                     }
-                    None
+                    return Ok(())
                 } else {
-                    Some(Slash)
+                    Slash
                 },
-                '"' => { self.string(); return; },
-                ' ' => return,
-                '\r' => return,
-                '\t' => return,
-                '\n' => { self.line += 1; return; }
+                '"' => { self.string()?; return Ok(()); },
+                ' ' | '\r' | '\t' => return Ok(()),
+                '\n' => { self.line += 1; return Ok(()); }
                 _ => {
                     match TokenType::parse(&c.to_string()) {
-                        Some(t) => Some(t),
+                        Some(t) => t,
                         None => {
                             if c.is_ascii_digit() {
                                 self.number();
-                                return;
+                                return Ok(());
                             } else if c.is_alphanumeric() || c == '_' {
                                 self.identifier();
-                                return;
+                                return Ok(());
                             }
                             let e = LexerError::UnexpectedCharacter { line: self.line, c };
-                            eprintln!("{}", e);
-                            self.errors.push(e);
-                            None
+                            return Err(e);
                         }
                     }
                 }
             };
 
-            if let Some(t) = t_type {
-                self.tokens.push(Token::new(lexeme, t, self.line, None));
-            }
+            self.tokens.push(Token::new(lexeme, t_type, self.line, None));
         }
+
+        Ok(())
     }
 
     fn identifier(&mut self) {
@@ -286,7 +300,7 @@ impl Scanner {
         self.tokens.push(Token::new(text.to_string(), *t_type, self.line, None));
     }
 
-    fn string(&mut self) {
+    fn string(&mut self) -> Result<(), LexerError> {
         while self.peek() != Some('"') && !self.is_at_end() {
             if self.peek() == Some('\n') { self.line += 1; }
             self.advance();
@@ -294,15 +308,14 @@ impl Scanner {
 
         if self.is_at_end() {
             let e = LexerError::UnterminatedString { line: self.line };
-            eprintln!("{}", e);
-            self.errors.push(e);
-            return;
+            return Err(e);
         }
 
         self.advance();
 
         let val = &self.source[self.start+1..self.current-1];
         self.tokens.push(Token::new(self.source[self.start..self.current].to_string(), TokenType::String, self.line, Some(Literal::String(val.to_string()))));
+        Ok(())
     }
 
     fn number(&mut self) {
@@ -313,6 +326,8 @@ impl Scanner {
             while self.peek().is_some_and(|c| c.is_ascii_digit()) { self.advance(); }
         }
 
+        // .expect() is fine here since this literally shouldn't be possible (hi me when this
+        // inevitably breaks)
         let num = self.source[self.start..self.current].parse().expect("Failed to parse number");
         self.tokens.push(Token::new(self.source[self.start..self.current].to_string(), TokenType::Number, self.line, Some(Literal::Number(num))));
     }
