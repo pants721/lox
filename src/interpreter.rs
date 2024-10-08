@@ -49,14 +49,36 @@ impl Visitor<Result<Box<dyn Any>>> for Interpreter {
 
                 match op.t_type {
                     TokenType::EqualEqual => {
-                        let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        Ok(Box::new(lhs == rhs))
+                        if let Some(lhs) = lhs.downcast_ref::<f64>() && let Some(rhs) = rhs.downcast_ref::<f64>() {
+                            return Ok(Box::new(lhs == rhs));
+                        }
+
+                        if let Some(lhs) = lhs.downcast_ref::<String>() && let Some(rhs) = rhs.downcast_ref::<String>() {
+                            return Ok(Box::new(lhs == rhs));
+                        }
+
+                        if let Some(lhs) = lhs.downcast_ref::<bool>() && let Some(rhs) = rhs.downcast_ref::<bool>() {
+                            return Ok(Box::new(lhs == rhs));
+                        }
+
+
+                        Err(anyhow!("Unable to assert equality between lhs and rhs of binary expression"))
                     },
                     TokenType::BangEqual => {
-                        let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        Ok(Box::new(lhs != rhs))
+                        if let Some(lhs) = lhs.downcast_ref::<f64>() && let Some(rhs) = rhs.downcast_ref::<f64>() {
+                            return Ok(Box::new(lhs != rhs));
+                        }
+
+                        if let Some(lhs) = lhs.downcast_ref::<String>() && let Some(rhs) = rhs.downcast_ref::<String>() {
+                            return Ok(Box::new(lhs != rhs));
+                        }
+
+                        if let Some(lhs) = lhs.downcast_ref::<bool>() && let Some(rhs) = rhs.downcast_ref::<bool>() {
+                            return Ok(Box::new(lhs != rhs));
+                        }
+
+
+                        Err(anyhow!("Unable to assert inequality between lhs and rhs of binary expression"))
                     },
                     TokenType::Greater => {
                         let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
