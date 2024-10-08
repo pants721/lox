@@ -20,6 +20,7 @@ impl Visitor<Result<Box<dyn Any>>> for Interpreter {
                             match t.t_type {
                                 TokenType::True => return Ok(Box::new(true)),
                                 TokenType::False => return Ok(Box::new(false)),
+                                TokenType::Nil => return Ok(Box::new(None::<()>)),
                                 _ => unreachable!(),
                             }
                         }
@@ -99,6 +100,13 @@ impl Interpreter {
 
         if let Some(s) = a.downcast_ref::<bool>() {
             return Ok(s.to_string()); 
+        }
+
+        // nil
+        if let Some(s) = a.downcast_ref::<Option<()>>() {
+            if s.is_none() {
+                return Ok("nil".to_string());
+            }
         }
 
         Err(anyhow!("Could not convert expression to string"))
