@@ -1,15 +1,39 @@
-use std::any::Any;
+use std::{any::{Any, type_name_of_val}, fmt};
 
 use anyhow::{anyhow, Context, Result};
+use thiserror::Error;
 
-use crate::{parser::{Expr, Visitor}, scanner::{Literal, Token, TokenType}};
+use crate::{lox_error_str, parser::{Expr, Visitor}, scanner::{Literal, Token, TokenType}};
 
-pub struct Interpreter {
-
+#[derive(Debug, Error)]
+pub enum InterpreterError {
+    TypeError {
+        line: usize,
+        msg: String,
+    },
+    ConversionError {
+        line: usize,
+        part: String,
+        expr_type: String,
+    }
 }
 
-impl Visitor<Result<Box<dyn Any>>> for Interpreter {
-    fn visit_expr(&mut self, e: &Expr) -> Result<Box<dyn Any>> {
+impl fmt::Display for InterpreterError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::TypeError { line, msg } => f.write_str(&lox_error_str!(line, "{}", msg)),
+            Self::ConversionError { line, part, expr_type } => f.write_str(&lox_error_str!(line, "Failed to convert {} of {}", part, expr_type)),
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct Interpreter {
+    has_errored: bool,
+}
+
+impl Visitor<Result<Box<dyn Any>, InterpreterError>> for Interpreter {
+    fn visit_expr(&mut self, e: &Expr) -> Result<Box<dyn Any>, InterpreterError> {
         match e {
             Expr::Literal { val } => {
                 if let Some(t) = val {
@@ -30,12 +54,17 @@ impl Visitor<Result<Box<dyn Any>>> for Interpreter {
             },
             Expr::Grouping { lhs: _, expr, rhs: _ } => self.visit_expr(expr),
             Expr::Unary { lhs, expr } => {
-                let rhs = self.visit_expr(expr).context("Failed to parse rhs of unary expression")?;
+                let rhs = self.visit_expr(expr)?;
 
                 match lhs.t_type {
                     TokenType::Minus => {
-                        let rhs: f64 = *rhs.downcast_ref().context("Failed to downcast")?;
-                        Ok(Box::new(-1.0 * rhs))
+                        if let Some(rhs) = rhs.downcast_ref() {
+                            Ok(Box::new(-1.0 * rhs))
+                        } else {
+                            let err = InterpreterError::TypeError { line: 1, msg: "Operand must be a number".to_string() };
+                            self.has_errored = true;
+                            Err(err)
+                        }
                     },
                     TokenType::Bang => {
                         Ok(Box::new(!is_truthy(rhs)))
@@ -44,106 +73,78 @@ impl Visitor<Result<Box<dyn Any>>> for Interpreter {
                 }
             },
             Expr::Binary { lhs, op, rhs } => {
-                let lhs = self.visit_expr(lhs).context("Failed to parse lhs of binary expression")?;
-                let rhs = self.visit_expr(rhs).context("Failed to parse rhs of binary expression")?;
+                let lhs = self.visit_expr(lhs)?;
+                let rhs = self.visit_expr(rhs)?;
 
-                match op.t_type {
-                    TokenType::EqualEqual => {
-                        if let Some(lhs) = lhs.downcast_ref::<f64>() { 
-                            if let Some(rhs) = rhs.downcast_ref::<f64>() {
-                                return Ok(Box::new(lhs == rhs));
-                            }
-                        }
+                // two numbers
+                if lhs.is::<f64>() && rhs.is::<f64>() {
+                    let lhs = *match lhs.downcast_ref::<f64>() {
+                        Some(inner) => inner,
+                        None => return Err(InterpreterError::ConversionError { line: 1, part: "lhs".to_string(), expr_type: "binary".to_string() }),
+                    };
+                    let rhs = *match rhs.downcast_ref::<f64>() {
+                        Some(inner) => inner,
+                        None => return Err(InterpreterError::ConversionError { line: 1, part: "rhs".to_string(), expr_type: "binary".to_string() }),
+                    };
 
-                        if let Some(lhs) = lhs.downcast_ref::<String>() { 
-                            if let Some(rhs) = rhs.downcast_ref::<String>() {
-                                return Ok(Box::new(lhs == rhs));
-                            }
-                        }
-
-                        if let Some(lhs) = lhs.downcast_ref::<bool>() { 
-                            if let Some(rhs) = rhs.downcast_ref::<bool>() {
-                                return Ok(Box::new(lhs == rhs));
-                            }
-                        }
-
-
-                        Ok(Box::new(false))
-                    },
-                    TokenType::BangEqual => {
-                        if let Some(lhs) = lhs.downcast_ref::<f64>() { 
-                            if let Some(rhs) = rhs.downcast_ref::<f64>() {
-                                return Ok(Box::new(lhs != rhs));
-                            }
-                        }
-
-                        if let Some(lhs) = lhs.downcast_ref::<String>() { 
-                            if let Some(rhs) = rhs.downcast_ref::<String>() {
-                                return Ok(Box::new(lhs != rhs));
-                            }
-                        }
-
-                        if let Some(lhs) = lhs.downcast_ref::<bool>() { 
-                            if let Some(rhs) = rhs.downcast_ref::<bool>() {
-                                return Ok(Box::new(lhs != rhs));
-                            }
-                        }
-
-
-                        Ok(Box::new(false))
-                    },
-                    TokenType::Greater => {
-                        let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        Ok(Box::new(lhs > rhs))
-                    },
-                    TokenType::GreaterEqual => {
-                        let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        Ok(Box::new(lhs >= rhs))
-                    },
-                    TokenType::Less => {
-                        let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        Ok(Box::new(lhs < rhs))
-                    },
-                    TokenType::LessEqual => {
-                        let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        Ok(Box::new(lhs <= rhs))
-                    },
-                    TokenType::Minus => {
-                        let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        Ok(Box::new(lhs - rhs))
-                    },
-                    TokenType::Slash => {
-                        let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        Ok(Box::new(lhs / rhs))
-                    },
-                    TokenType::Star => {
-                        let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                        Ok(Box::new(lhs * rhs))
-                    },
-                    TokenType::Plus => {
-                        if lhs.is::<f64>() && rhs.is::<f64>() {
-                            let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                            let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
-                            return Ok(Box::new(lhs + rhs));
-                        }
-
-                        if lhs.is::<String>() && rhs.is::<String>() {
-                            let lhs = lhs.downcast_ref::<String>().expect("Failed to downcast string").clone();
-                            let rhs = rhs.downcast_ref::<String>().expect("Failed to downcast string").clone();
-                            return Ok(Box::new(lhs + &rhs));
-                        }
-
-                        unreachable!()
-                    },
-                    _ => unreachable!("Binary expression has operator of unrecognized token"),
+                    return match op.t_type {
+                        TokenType::EqualEqual => Ok(Box::new(lhs == rhs)),
+                        TokenType::BangEqual => Ok(Box::new(lhs != rhs)),
+                        TokenType::Greater => Ok(Box::new(lhs > rhs)),
+                        TokenType::GreaterEqual => Ok(Box::new(lhs >= rhs)),
+                        TokenType::Less => Ok(Box::new(lhs < rhs)),
+                        TokenType::LessEqual => Ok(Box::new(lhs <= rhs)),
+                        TokenType::Minus => Ok(Box::new(lhs - rhs)),
+                        TokenType::Slash => Ok(Box::new(lhs / rhs)),
+                        TokenType::Star => Ok(Box::new(lhs * rhs)),
+                        TokenType::Plus => Ok(Box::new(lhs + rhs)),
+                        _ => Err(InterpreterError::TypeError { line: 1, msg: "Invalid operation on two numbers".to_string() })
+                    };
                 }
+
+                // two strings
+                if lhs.is::<String>() && rhs.is::<String>() {
+                    let lhs = match lhs.downcast_ref::<String>() {
+                        Some(inner) => inner.clone(),
+                        None => return Err(InterpreterError::ConversionError { line: 1, part: "lhs".to_string(), expr_type: "binary".to_string() }),
+                    };
+                    let rhs = match rhs.downcast_ref::<String>() {
+                        Some(inner) => inner.clone(),
+                        None => return Err(InterpreterError::ConversionError { line: 1, part: "rhs".to_string(), expr_type: "binary".to_string() }),
+                    };
+
+                    return match op.t_type {
+                        TokenType::EqualEqual => Ok(Box::new(lhs == rhs)),
+                        TokenType::BangEqual => Ok(Box::new(lhs != rhs)),
+                        TokenType::Plus => Ok(Box::new(lhs + &rhs)),
+                        _ => Err(InterpreterError::TypeError { line: 1, msg: "Invalid operation on two strings".to_string() })
+                    };
+                }
+
+                // two bools
+                if lhs.is::<bool>() && rhs.is::<bool>() {
+                    let lhs = *match lhs.downcast_ref::<bool>() {
+                        Some(inner) => inner,
+                        None => return Err(InterpreterError::ConversionError { line: 1, part: "lhs".to_string(), expr_type: "binary".to_string() }),
+                    };
+                    let rhs = *match rhs.downcast_ref::<bool>() {
+                        Some(inner) => inner,
+                        None => return Err(InterpreterError::ConversionError { line: 1, part: "rhs".to_string(), expr_type: "binary".to_string() }),
+                    };
+
+                    return match op.t_type {
+                        TokenType::EqualEqual => Ok(Box::new(lhs == rhs)),
+                        TokenType::BangEqual => Ok(Box::new(lhs != rhs)),
+                        _ => Err(InterpreterError::TypeError { line: 1, msg: "Invalid operation on two bools".to_string() })
+                    };
+                }
+
+                // mismatch types
+                return match op.t_type {
+                    TokenType::EqualEqual => Ok(Box::new(false)),
+                    TokenType::BangEqual => Ok(Box::new(true)),
+                    _ => Err(InterpreterError::TypeError { line: 1, msg: "Mismatched types in binary expression".to_string() })
+                };
             }
             _ => unreachable!()
         }

@@ -110,9 +110,17 @@ fn main() -> Result<()> {
                     process::exit(65);
                 }
 
-                let mut i = Interpreter {};
+                let mut i = Interpreter::default();
 
-                println!("{}", i.expr_as_string(&expr)?);
+                let s = match i.expr_as_string(&expr) {
+                    Ok(x) => x,
+                    Err(e) => {
+                        eprintln!("{}", e);
+                        process::exit(70);
+                    }
+                };
+
+                println!("{}", s);
             }
         }
         _ => {

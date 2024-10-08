@@ -1,12 +1,11 @@
 use std::fmt;
 
 use anyhow::{anyhow, Result};
-use thiserror::Error;
 
 use crate::{lox_token_error_str, scanner::{Token, TokenType}};
 use crate::grouping_expr;
 
-#[derive(Debug,Error)]
+#[derive(Debug)]
 pub enum ParserError {
     UnmatchedDelimiter {
         line: usize,
