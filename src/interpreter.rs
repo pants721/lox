@@ -68,7 +68,7 @@ impl Visitor<Result<Box<dyn Any>>> for Interpreter {
                         }
 
 
-                        Err(anyhow!("Unable to assert equality between lhs and rhs of binary expression"))
+                        Ok(Box::new(false))
                     },
                     TokenType::BangEqual => {
                         if let Some(lhs) = lhs.downcast_ref::<f64>() { 
@@ -90,7 +90,7 @@ impl Visitor<Result<Box<dyn Any>>> for Interpreter {
                         }
 
 
-                        Err(anyhow!("Unable to assert inequality between lhs and rhs of binary expression"))
+                        Ok(Box::new(false))
                     },
                     TokenType::Greater => {
                         let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
