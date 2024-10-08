@@ -3,19 +3,17 @@ use std::fs;
 use std::process;
 
 use anyhow::Result;
-use parse::AstPrinter;
-use parse::Expr;
-use parse::Parser;
-use parse::Visitor;
-use scanner::Literal;
-use scanner::Token;
-use scanner::TokenType;
+use interpreter::Interpreter;
+use parser::AstPrinter;
+use parser::Parser;
+use parser::Visitor;
 
 use crate::scanner::Scanner;
 
 mod scanner;
 mod util;
-mod parse;
+mod parser;
+mod interpreter;
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -80,17 +78,42 @@ fn main() -> Result<()> {
 
                 let mut p = AstPrinter;
 
-                println!("{}", p.visit(&expr));
+                println!("{}", p.print(&expr));
             } else {
                 println!("EOF  null");
             }
+        },
+        "evaluate" => {
+            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+                eprintln!("Failed to read file {}", filename);
+                String::new()
+            });
 
-            // let expr = 
-            // binary_expr!(
-            //     unary_expr!("-", literal_expr!(123.0, Literal::Number)),
-            //     "*",
-            //     grouping_expr!("(", literal_expr!(45.67, Literal::Number), ")")
-            // );
+            if !file_contents.is_empty() {
+                let mut scanner = Scanner::new(file_contents);
+                let tokens = scanner.scan_tokens();
+
+                if scanner.has_errored {
+                    process::exit(65);
+                }
+
+                let mut parser = Parser::new(tokens);
+                let expr = match parser.parse() {
+                    Ok(ex) => ex,
+                    Err(e) => {
+                        eprintln!("{}", e);
+                        process::exit(65);
+                    }
+                };
+
+                if parser.has_errored {
+                    process::exit(65);
+                }
+
+                let mut i = Interpreter {};
+
+                println!("{}", i.expr_as_string(&expr)?);
+            }
         }
         _ => {
             eprintln!("Unknown command: {}", command);

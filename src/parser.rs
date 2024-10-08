@@ -1,10 +1,10 @@
-use std::fmt::{self, Write};
+use std::fmt;
 
 use anyhow::{anyhow, Result};
 use thiserror::Error;
 
-use crate::{lox_error_str, lox_token_error_str, scanner::{Scanner, Token, TokenType}};
-use crate::{binary_expr, unary_expr, grouping_expr, literal_expr};
+use crate::{lox_token_error_str, scanner::{Token, TokenType}};
+use crate::grouping_expr;
 
 #[derive(Debug,Error)]
 pub enum ParserError {
@@ -54,28 +54,13 @@ pub enum Expr {
 }
 
 pub trait Visitor<T> {
-    fn visit(&mut self, e: &Expr) -> T;
+    fn visit_expr(&mut self, e: &Expr) -> T;
 }
 
 pub struct AstPrinter;
 
-impl AstPrinter {
-    fn parenthesize(&mut self, name: &String, exprs: Vec<&Expr>) -> String {
-        let mut s = String::new();
-        s += "(";
-        s += name;
-
-        for expr in exprs {
-            s += " ";
-            s += &self.visit(expr);
-        }
-        s += ")";
-        s
-    }
-}
-
 impl Visitor<String> for AstPrinter {
-    fn visit(&mut self, e: &Expr) -> String {
+    fn visit_expr(&mut self, e: &Expr) -> String {
         match e {
             Expr::Literal { val } => match val {
                 Some(t) => match &t.literal {
@@ -84,10 +69,29 @@ impl Visitor<String> for AstPrinter {
                 },
                 None => "nil".to_string(),
             },
-            Expr::Grouping { lhs, ref expr, rhs } => self.parenthesize(&"group".to_string(), vec![&expr]),
+            Expr::Grouping { lhs: _, ref expr, rhs: _ } => self.parenthesize(&"group".to_string(), vec![&expr]),
             Expr::Binary { ref lhs, op, ref rhs } => self.parenthesize(&op.lexeme, vec![&lhs, &rhs]),
             Expr::Unary { lhs, ref expr } => self.parenthesize(&lhs.lexeme, vec![&expr]),
         }
+    }
+}
+
+impl AstPrinter {
+    pub fn print(&mut self, e: &Expr) -> String {
+        self.visit_expr(e)
+    }
+
+    fn parenthesize(&mut self, name: &String, exprs: Vec<&Expr>) -> String {
+        let mut s = String::new();
+        s += "(";
+        s += name;
+
+        for expr in exprs {
+            s += " ";
+            s += &self.visit_expr(expr);
+        }
+        s += ")";
+        s
     }
 }
 
