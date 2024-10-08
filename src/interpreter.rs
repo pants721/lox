@@ -48,6 +48,16 @@ impl Visitor<Result<Box<dyn Any>>> for Interpreter {
                 let rhs = self.visit_expr(rhs).context("Failed to parse rhs of binary expression")?;
 
                 match op.t_type {
+                    TokenType::EqualEqual => {
+                        let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
+                        let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
+                        Ok(Box::new(lhs == rhs))
+                    },
+                    TokenType::BangEqual => {
+                        let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
+                        let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
+                        Ok(Box::new(lhs != rhs))
+                    },
                     TokenType::Greater => {
                         let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
                         let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
