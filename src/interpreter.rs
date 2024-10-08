@@ -117,6 +117,12 @@ pub fn is_truthy(obj: Box<dyn Any>) -> bool {
     if let Some(b) = obj.downcast_ref::<bool>() {
         return *b;
     }
+     
+    if let Some(o) = obj.downcast_ref::<Option<()>>() {
+        if o.is_none() {
+            return false;
+        }
+    }
 
     true
 }
