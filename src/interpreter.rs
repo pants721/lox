@@ -49,32 +49,44 @@ impl Visitor<Result<Box<dyn Any>>> for Interpreter {
 
                 match op.t_type {
                     TokenType::EqualEqual => {
-                        if let Some(lhs) = lhs.downcast_ref::<f64>() && let Some(rhs) = rhs.downcast_ref::<f64>() {
-                            return Ok(Box::new(lhs == rhs));
+                        if let Some(lhs) = lhs.downcast_ref::<f64>() { 
+                            if let Some(rhs) = rhs.downcast_ref::<f64>() {
+                                return Ok(Box::new(lhs == rhs));
+                            }
                         }
 
-                        if let Some(lhs) = lhs.downcast_ref::<String>() && let Some(rhs) = rhs.downcast_ref::<String>() {
-                            return Ok(Box::new(lhs == rhs));
+                        if let Some(lhs) = lhs.downcast_ref::<String>() { 
+                            if let Some(rhs) = rhs.downcast_ref::<String>() {
+                                return Ok(Box::new(lhs == rhs));
+                            }
                         }
 
-                        if let Some(lhs) = lhs.downcast_ref::<bool>() && let Some(rhs) = rhs.downcast_ref::<bool>() {
-                            return Ok(Box::new(lhs == rhs));
+                        if let Some(lhs) = lhs.downcast_ref::<bool>() { 
+                            if let Some(rhs) = rhs.downcast_ref::<bool>() {
+                                return Ok(Box::new(lhs == rhs));
+                            }
                         }
 
 
                         Err(anyhow!("Unable to assert equality between lhs and rhs of binary expression"))
                     },
                     TokenType::BangEqual => {
-                        if let Some(lhs) = lhs.downcast_ref::<f64>() && let Some(rhs) = rhs.downcast_ref::<f64>() {
-                            return Ok(Box::new(lhs != rhs));
+                        if let Some(lhs) = lhs.downcast_ref::<f64>() { 
+                            if let Some(rhs) = rhs.downcast_ref::<f64>() {
+                                return Ok(Box::new(lhs != rhs));
+                            }
                         }
 
-                        if let Some(lhs) = lhs.downcast_ref::<String>() && let Some(rhs) = rhs.downcast_ref::<String>() {
-                            return Ok(Box::new(lhs != rhs));
+                        if let Some(lhs) = lhs.downcast_ref::<String>() { 
+                            if let Some(rhs) = rhs.downcast_ref::<String>() {
+                                return Ok(Box::new(lhs != rhs));
+                            }
                         }
 
-                        if let Some(lhs) = lhs.downcast_ref::<bool>() && let Some(rhs) = rhs.downcast_ref::<bool>() {
-                            return Ok(Box::new(lhs != rhs));
+                        if let Some(lhs) = lhs.downcast_ref::<bool>() { 
+                            if let Some(rhs) = rhs.downcast_ref::<bool>() {
+                                return Ok(Box::new(lhs != rhs));
+                            }
                         }
 
 
