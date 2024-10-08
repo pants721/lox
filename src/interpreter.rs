@@ -48,6 +48,26 @@ impl Visitor<Result<Box<dyn Any>>> for Interpreter {
                 let rhs = self.visit_expr(rhs).context("Failed to parse rhs of binary expression")?;
 
                 match op.t_type {
+                    TokenType::Greater => {
+                        let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
+                        let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
+                        Ok(Box::new(lhs > rhs))
+                    },
+                    TokenType::GreaterEqual => {
+                        let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
+                        let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
+                        Ok(Box::new(lhs >= rhs))
+                    },
+                    TokenType::Less => {
+                        let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
+                        let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
+                        Ok(Box::new(lhs < rhs))
+                    },
+                    TokenType::LessEqual => {
+                        let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
+                        let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
+                        Ok(Box::new(lhs <= rhs))
+                    },
                     TokenType::Minus => {
                         let lhs = *lhs.downcast_ref::<f64>().expect("Failed to downcast f64");
                         let rhs = *rhs.downcast_ref::<f64>().expect("Failed to downcast f64");
